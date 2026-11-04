@@ -1,0 +1,16 @@
+{
+  "description": "Archive normalized session metadata when a session ends, before retention deletes the transcript. Never blocks: failures are ignored.",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lightning ingest --source claude --quiet || true",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

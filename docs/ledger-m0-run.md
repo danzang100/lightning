@@ -22,3 +22,13 @@ After the run, record counts, timing and any parse problems here (no private con
 - Doctor: all 14 Claude Code versions (2.1.246 to 2.1.295) have 100% usage/cache fields; stop_reason is 80% on 2.1.281. Report tool-call total (6,305) matches the database.
 - Models seen: claude-opus-5, claude-opus-5-5, claude-sonnet-5, claude-sonnet-5-5, claude-haiku-4-5-20251001 (not in the shipped price table). All unpriced until prices are filled in.
 - Source logs were copied with robocopy and the copy marked read-only; the database was written to the temp directory.
+
+## Lightning 0.2 run of 2026-11-04 (live logs, read-only; database in a temp directory)
+
+- Ingest, all harnesses: 112 files (Claude Code and Codex; no OpenCode database present), 65 sessions, 7,130 turns (claude_code 6,712, codex 418), 8,153 tool calls, 0 malformed lines, 1 partial tail, about 3 s (release build).
+- Codex 0.123 and 0.130 rollouts: usage and cache-read fields 100%; cache writes and stop reasons are not logged by Codex.
+- Segments: 542. Task types: 25% unknown, then exploration, feature, debugging, test writing, docs, config/devops, refactor. Proxy outcome: 61% likely success, 12% likely failure, 27% unknown. One mixed-pair segment.
+- Comparisons: only Claude Code Opus 5 and Opus 5.5 reach n >= 20 in any task type (feature); they are indistinguishable within intervals. Codex pairs are all below n = 20.
+- Suggestions at min n 10: none clear the evidence bar. (A first version flagged context hygiene everywhere because it measured mid-session segments; fixed to measure only the segment that opens a session, relative to the user's other sessions in the same harness.)
+- No prices are configured yet, so all costs are in tokens.
+- The real-data gate (spec section 15.2) has not been run: no segments are hand-labeled yet.

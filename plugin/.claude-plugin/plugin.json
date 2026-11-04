@@ -1,6 +1,9 @@
 {
   "name": "lightning",
-  "version": "0.1.0",
-  "description": "Read the session logs your coding agent already writes and report which models cost what, locally and read-only.",
-  "author": { "name": "danzang100" }
+  "version": "0.2.0",
+  "description": "Which harness + model pair works best for which kind of work, from your own local agent logs: comparisons with confidence, reviewable suggestions, and whether they helped.",
+  "author": { "name": "danzang100" },
+  "homepage": "https://github.com/danzang100/lightning",
+  "license": "MIT",
+  "keywords": ["models", "cost", "evaluation", "codex", "opencode"]
 }

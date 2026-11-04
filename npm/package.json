@@ -1,0 +1,12 @@
+{
+  "name": "lightning-ledger",
+  "version": "0.2.0",
+  "description": "Which coding-agent harness + model pair works best for which kind of work, from your own local session logs. Launcher for the lightning binary.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/danzang100/lightning.git" },
+  "homepage": "https://github.com/danzang100/lightning",
+  "bin": { "lightning": "bin/lightning.js" },
+  "files": ["bin/lightning.js", "checksums.json", "README.md"],
+  "engines": { "node": ">=18" },
+  "keywords": ["claude-code", "codex", "opencode", "llm", "agents", "cost"]
+}

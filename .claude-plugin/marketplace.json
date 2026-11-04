@@ -1,7 +1,11 @@
 {
-  "name": "lightning-local",
+  "name": "lightning",
   "owner": { "name": "danzang100" },
   "plugins": [
-    { "name": "lightning", "source": "./plugin", "description": "Lightning skills: which model is worth using for which task" }
+    {
+      "name": "lightning",
+      "source": "./plugin",
+      "description": "Compare harness + model pairs on your own logs; pick, report, review and setup skills, a read-only MCP server and a session-end archive hook."
+    }
   ]
 }

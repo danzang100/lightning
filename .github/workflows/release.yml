@@ -1,0 +1,73 @@
+# Builds release archives for a pushed tag (vX.Y.Z), writes SHA-256 checksums, and creates a
+# DRAFT GitHub release. Publishing the release, crates.io and npm stays a manual step.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
+          - { target: x86_64-apple-darwin, os: macos-13 }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Check tag matches Cargo.toml version
+        shell: bash
+        run: |
+          v=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != Cargo.toml $v"; exit 1; }
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a ../../../lightning-${{ matrix.target }}.zip lightning.exe
+          else
+            tar -czf ../../../lightning-${{ matrix.target }}.tar.gz lightning
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightning-${{ matrix.target }}
+          path: lightning-${{ matrix.target }}.*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum lightning-* > SHA256SUMS
+          python3 - <<'PY'
+          import json
+          sums = {}
+          for line in open("SHA256SUMS"):
+              digest, name = line.split()
+              sums[name.lstrip("*")] = digest
+          json.dump(sums, open("checksums.json", "w"), indent=2, sort_keys=True)
+          PY
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --verify-tag --title "$GITHUB_REF_NAME" --notes "Draft. Copy dist/checksums.json into npm/checksums.json before publishing the npm package."

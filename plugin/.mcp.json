@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lightning": {
+      "command": "lightning",
+      "args": ["mcp"]
+    }
+  }
+}
