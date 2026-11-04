@@ -1,0 +1,4 @@
+target/
+.env
+# Draft specs (not committed yet)
+docs/specs/
