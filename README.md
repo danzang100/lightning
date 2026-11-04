@@ -30,6 +30,7 @@ Costs show in tokens until you add prices. Copy [pricing/default.toml](pricing/d
 
 | Question | Command |
 |---|---|
+| Which pair should I use for this task? | `lightning pick "fix the flaky login test"` (`--repo <name>`, `--json`) |
 | Which pair works best for each kind of task? | `lightning report` (`--by pair`, `--by pair+effort`, `--format md\|json\|html`) |
 | Is the expensive model worth it for debugging? | `lightning compare claude-opus-5 claude-sonnet-5 --task debugging` |
 | What do mid-session model switches cost me? | `lightning switches` |
@@ -80,7 +81,7 @@ There are four kinds of suggestion:
 
 ## Agents, MCP and skills
 
-- **Claude Code:** add this repository as a plugin marketplace and install the `lightning` plugin. It brings the `pick`, `report`, `review`, `setup` and `lightning-doctor` skills, registers the read-only MCP server, and adds a session-end hook. The hook runs `lightning ingest --quiet` to archive metadata before retention deletes the transcript.
+- **Claude Code:** add this repository as a plugin marketplace and install the `lightning` plugin. It brings the `pick`, `report`, `review`, `setup` and `doctor` skills, registers the read-only MCP server, and adds a session-end hook. The hook runs `lightning ingest --quiet` to archive metadata before retention deletes the transcript.
 - **Codex:** add to `~/.codex/config.toml`:
   ```toml
   [mcp_servers.lightning]

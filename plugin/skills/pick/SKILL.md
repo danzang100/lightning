@@ -5,7 +5,9 @@ description: Use before starting a task when the user asks which model, harness 
 
 # Pick a pair
 
-1. If the `lightning` MCP server is connected, call `recommend_pair` with a one-line description of the task and, when known, the repo's directory name. Otherwise run `lightning ingest --quiet` and then use the MCP tool through `lightning mcp`, or fall back to `lightning report --by task --format json`.
+Requires the `lightning` binary on PATH. If `lightning --version` fails, use the `setup` skill and stop.
+
+1. If the `lightning` MCP server is connected, call `recommend_pair` with a one-line description of the task and, when known, the repo's directory name. Otherwise run `lightning ingest --quiet`, then `lightning pick "<task description>" [--repo <dir name>] --json`. Both return the same result.
 2. Read the verdict:
    - `recommend`: name the top pair, its proxy success, cost per segment and n, and the runner-up if it is close.
    - `insufficient_data`: say so. Do not guess. Mention how many segments exist for the task type.

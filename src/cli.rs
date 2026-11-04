@@ -80,6 +80,18 @@ pub enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Which pair has worked best for a kind of task, from a one-line description (same as MCP `recommend_pair`).
+    Pick {
+        /// What you are about to do, e.g. "fix the flaky login test".
+        task: String,
+        /// Only this repo (directory name).
+        #[arg(long)]
+        repo: Option<String>,
+        #[arg(long, default_value = "90d")]
+        since: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// What model or harness switches cost (cache loss, token spikes, corrections).
     Switches {
         #[arg(long, default_value = "30d")]
@@ -359,6 +371,29 @@ pub fn run_with_input<R: BufRead, W: Write>(cli: Cli, input: &mut R, out: &mut W
                 }
                 writeln!(out, "days alternating both pairs: {}", f.alternation_days)?;
                 writeln!(out, "verdict: {:?} ({} confidence)\nwould change: {}", f.verdict, f.confidence, f.would_change)?;
+            }
+            Ok(())
+        }
+        Command::Pick { task, repo, since, json } => {
+            let store = env.store()?;
+            let segs = env.segments(&store, since_of(Some(&since))?)?;
+            let r = analysis::recommend(&segs, &task, repo.as_deref(), env.min_n);
+            if json {
+                writeln!(out, "{}", serde_json::to_string_pretty(&r)?)?;
+                return Ok(());
+            }
+            let pct = |x: Option<f64>| x.map_or("n/a".into(), |v| format!("{:.0}%", v * 100.0));
+            writeln!(out, "task type: {} (confidence {:.0}%)", r.task_type, r.task_type_confidence * 100.0)?;
+            writeln!(out, "verdict: {}\n", r.verdict)?;
+            if r.ranking.is_empty() {
+                writeln!(out, "no segments of this task type in the last {since} (run `lightning ingest` if you haven't)")?;
+            }
+            for (i, p) in r.ranking.iter().enumerate() {
+                let cost = p.cost_per_segment.map_or("n/a".into(), |c| if p.cost_basis == "usd" { format!("${c:.2}") } else { format!("{c:.0} {}", p.cost_basis) });
+                writeln!(out, "{}. {}  proxy success {} (lower bound {}), {cost} per segment, n={} [{}]", i + 1, p.pair, pct(p.proxy_success), pct(p.success_lo), p.n, p.confidence)?;
+            }
+            for c in &r.caveats {
+                writeln!(out, "note: {c}")?;
             }
             Ok(())
         }

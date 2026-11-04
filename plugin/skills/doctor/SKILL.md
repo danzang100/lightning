@@ -1,5 +1,5 @@
 ---
-name: lightning-doctor
+name: doctor
 description: Use when Lightning numbers look wrong or incomplete, the user asks whether Lightning is healthy, or after a harness update. Runs `lightning doctor` and explains parser gaps per harness, retention risk and unpriced models.
 ---
 

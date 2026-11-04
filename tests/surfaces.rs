@@ -62,6 +62,10 @@ fn ingest_two_harnesses_and_report_by_pair_and_task() {
 
     let cmp = cli_in(&w.db, &w.pricing, &["compare", "big-model", "small-model", "--task", "debugging"], "");
     assert!(cmp.contains("verdict:") && cmp.contains("big-model: n=") && cmp.contains("success difference (B - A, 90%)"), "{cmp}");
+    let pick = cli_in(&w.db, &w.pricing, &["pick", "fix the crash on startup", "--since", "3650d"], "");
+    assert!(pick.contains("task type: debugging") && pick.contains("1. claude_code/") && pick.contains("note: proxy success is a heuristic"), "{pick}");
+    let pick: serde_json::Value = serde_json::from_str(&cli_in(&w.db, &w.pricing, &["pick", "fix the crash on startup", "--since", "3650d", "--repo", "no-such-repo", "--json"], "")).unwrap();
+    assert_eq!(pick["verdict"], "insufficient_data");
     let segs = cli_in(&w.db, &w.pricing, &["segments", "--limit", "5"], "");
     assert_eq!(segs.lines().count(), 5);
     let sw = cli_in(&w.db, &w.pricing, &["switches", "--since", "3650d"], "");
