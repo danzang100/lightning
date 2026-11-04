@@ -1,5 +1,6 @@
-//! Lightning: normalize coding-agent transcripts and report per-model cost and reliability.
+//! Lightning: which harness + model pair works best for which kind of work, from local session logs.
 pub mod adapter;
+pub mod analysis;
 pub mod classify;
 pub mod cli;
 pub mod doctor;
@@ -9,4 +10,7 @@ pub mod pricing;
 pub mod redact;
 pub mod report;
 pub mod schema;
+pub mod segment;
+pub mod stats;
 pub mod store;
+pub mod synth;
