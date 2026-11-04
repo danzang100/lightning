@@ -1,0 +1,20 @@
+{"timestamp": "2026-07-10T10:00:00.000Z", "type": "session_meta", "payload": {"id": "019f0000-0000-7000-8000-000000000001", "cwd": "C:\\work\\demo", "originator": "codex_cli_rs", "cli_version": "0.123.0", "model_provider": "openai"}}
+{"timestamp": "2026-07-10T10:00:01.000Z", "type": "turn_context", "payload": {"turn_id": "t1", "cwd": "C:\\work\\demo", "model": "gpt-5.4-mini", "effort": "medium"}}
+{"timestamp": "2026-07-10T10:00:02.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Fix the failing parser test CANARY_CODEX_PROMPT", "images": []}}
+{"timestamp": "2026-07-10T10:00:03.000Z", "type": "response_item", "payload": {"type": "reasoning", "summary": []}}
+{"timestamp": "2026-07-10T10:00:04.000Z", "type": "response_item", "payload": {"type": "function_call", "name": "shell_command", "arguments": "{\"command\": \"cargo test CANARY_CODEX_CMD\", \"workdir\": \"C:\\\\work\\\\demo\"}", "call_id": "c1"}}
+{"timestamp": "2026-07-10T10:00:05.000Z", "type": "response_item", "payload": {"type": "function_call_output", "call_id": "c1", "output": "Exit code: 101\nWall time: 2 seconds\nOutput:\nCANARY_CODEX_OUTPUT"}}
+{"timestamp": "2026-07-10T10:00:05.500Z", "type": "event_msg", "payload": {"type": "exec_command_end", "call_id": "c1", "exit_code": 101, "stdout": "CANARY_CODEX_OUTPUT"}}
+{"timestamp": "2026-07-10T10:00:06.000Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"total_token_usage": {"total_tokens": 1050}, "last_token_usage": {"input_tokens": 1000, "cached_input_tokens": 400, "output_tokens": 50, "reasoning_output_tokens": 10, "total_tokens": 1050}}}}
+{"timestamp": "2026-07-10T10:00:06.100Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"total_token_usage": {"total_tokens": 1050}, "last_token_usage": {"input_tokens": 1000, "cached_input_tokens": 400, "output_tokens": 50, "reasoning_output_tokens": 10, "total_tokens": 1050}}}}
+{"timestamp": "2026-07-10T10:00:07.000Z", "type": "response_item", "payload": {"type": "custom_tool_call", "status": "completed", "call_id": "c2", "name": "apply_patch", "input": "*** Begin Patch\n*** Update File: C:\\work\\demo\\src\\parser.rs\n@@\n-CANARY_CODEX_PATCH\n*** End Patch\n"}}
+{"timestamp": "2026-07-10T10:00:08.000Z", "type": "event_msg", "payload": {"type": "patch_apply_end", "call_id": "c2", "success": true, "stdout": "", "stderr": ""}}
+{"timestamp": "2026-07-10T10:00:08.100Z", "type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "c2", "output": "{\"output\": \"Success.\", \"metadata\": {\"exit_code\": 0}}"}}
+{"timestamp": "2026-07-10T10:00:09.000Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"total_token_usage": {"total_tokens": 2100}, "last_token_usage": {"input_tokens": 900, "cached_input_tokens": 800, "output_tokens": 150, "reasoning_output_tokens": 20, "total_tokens": 1050}}}}
+{"timestamp": "2026-07-10T10:01:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "no, that's wrong, keep the old API"}}
+{"timestamp": "2026-07-10T10:01:01.000Z", "type": "turn_context", "payload": {"turn_id": "t2", "cwd": "C:\\work\\demo", "model": "gpt-5.4-mini", "effort": "high"}}
+{"timestamp": "2026-07-10T10:01:02.000Z", "type": "response_item", "payload": {"type": "function_call", "name": "shell_command", "arguments": "{\"command\": \"ls\"}", "call_id": "c3"}}
+{"timestamp": "2026-07-10T10:01:03.000Z", "type": "response_item", "payload": {"type": "function_call_output", "call_id": "c3", "output": "Exit code: 0\nOutput:\n"}}
+{"timestamp": "2026-07-10T10:01:04.000Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"total_token_usage": {"total_tokens": 3000}, "last_token_usage": {"input_tokens": 800, "cached_input_tokens": 500, "output_tokens": 100, "reasoning_output_tokens": 0, "total_tokens": 900}}}}
+{not json
+{"timestamp": "2026-07-10T10:01:05.000Z", "type": "event_msg", "payload": {"type": "turn_aborted", "turn_id": "t2", "reason": "interrupted"}}

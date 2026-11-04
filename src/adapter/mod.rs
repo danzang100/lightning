@@ -7,6 +7,8 @@ use crate::redact::Hasher;
 use crate::schema::ParsedFile;
 
 pub mod claude_code;
+pub mod codex;
+pub mod opencode;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscoveredFile {

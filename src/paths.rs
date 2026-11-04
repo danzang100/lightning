@@ -1,7 +1,7 @@
 //! Default locations. Everything is overridable by flag or environment variable.
 use std::path::PathBuf;
 
-fn home() -> Option<PathBuf> {
+pub fn home() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from)
 }
 
