@@ -345,7 +345,7 @@ const HEADERS: [&str; 12] = [
 impl Report {
     fn heading(&self) -> String {
         format!(
-            "Model Ledger report: by {}{} | pricing {} ({}) | costs are estimates",
+            "Lightning report: by {}{} | pricing {} ({}) | costs are estimates",
             self.by,
             self.since.as_ref().map(|s| format!(", since {s}")).unwrap_or_default(),
             self.pricing_version,

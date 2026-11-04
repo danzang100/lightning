@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use chrono::{TimeZone, Utc};
-use ledger::adapter::claude_code::ClaudeCode;
-use ledger::doctor::build;
-use ledger::ingest::ingest;
-use ledger::pricing::PriceTable;
-use ledger::store::Store;
+use lightning::adapter::claude_code::ClaudeCode;
+use lightning::doctor::build;
+use lightning::ingest::ingest;
+use lightning::pricing::PriceTable;
+use lightning::store::Store;
 
 fn setup() -> Store {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude_root");
@@ -20,7 +20,7 @@ fn doctor_golden() {
     let now = Utc.with_ymd_and_hms(2026, 10, 12, 0, 0, 0).unwrap();
     let r = build(&store, &PriceTable::builtin(), now).unwrap();
     let expected = "\
-Model Ledger doctor
+Lightning doctor
 
 data: 3 files, 2 sessions, 10 turns, 8 tool calls
 parse: 1 malformed lines, 1 file(s) ending in a partial line

@@ -1,4 +1,4 @@
-//! Model Ledger: normalize coding-agent transcripts and report per-model cost and reliability.
+//! Lightning: normalize coding-agent transcripts and report per-model cost and reliability.
 pub mod adapter;
 pub mod cli;
 pub mod doctor;

@@ -19,11 +19,11 @@ pub fn data_dir() -> PathBuf {
             .map(PathBuf::from)
             .or_else(|| home().map(|h| h.join(".local").join("share")))
     };
-    base.unwrap_or_else(|| PathBuf::from(".")).join("ledger")
+    base.unwrap_or_else(|| PathBuf::from(".")).join("lightning")
 }
 
 pub fn default_db() -> PathBuf {
-    data_dir().join("ledger.db")
+    data_dir().join("lightning.db")
 }
 
 pub fn default_pricing_override() -> PathBuf {

@@ -1,7 +1,7 @@
 {
-  "name": "model-ledger-local",
+  "name": "lightning-local",
   "owner": { "name": "danzang100" },
   "plugins": [
-    { "name": "model-ledger", "source": "./plugin", "description": "Local model usage ledger skills" }
+    { "name": "lightning", "source": "./plugin", "description": "Lightning skills: which model is worth using for which task" }
   ]
 }

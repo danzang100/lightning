@@ -13,10 +13,10 @@ use crate::report;
 use crate::store::Store;
 
 #[derive(Parser, Debug)]
-#[command(name = "ledger", version, about = "Which model is worth using for which task, from your own transcripts")]
+#[command(name = "lightning", version, about = "Which model is worth using for which task, from your own transcripts")]
 pub struct Cli {
     /// SQLite database path (default: platform data dir).
-    #[arg(long, global = true, env = "LEDGER_DB")]
+    #[arg(long, global = true, env = "LIGHTNING_DB")]
     pub db: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Command,
@@ -28,7 +28,7 @@ pub enum Command {
     Ingest {
         #[arg(long, default_value = "claude")]
         source: String,
-        #[arg(long, env = "LEDGER_CLAUDE_ROOT")]
+        #[arg(long, env = "LIGHTNING_CLAUDE_ROOT")]
         root: Option<PathBuf>,
         #[arg(long)]
         json: bool,
@@ -66,7 +66,7 @@ pub fn run<W: Write>(cli: Cli, out: &mut W) -> Result<()> {
             }
             let root = root
                 .or_else(paths::default_claude_root)
-                .context("no transcript root: pass --root or set LEDGER_CLAUDE_ROOT")?;
+                .context("no transcript root: pass --root or set LIGHTNING_CLAUDE_ROOT")?;
             ingest::ensure_db_outside_root(&db, &root)?;
             let mut store = Store::open(&db)?;
             let summary = ingest::ingest(&mut store, &ClaudeCode, &root)?;

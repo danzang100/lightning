@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use ledger::adapter::claude_code::ClaudeCode;
-use ledger::ingest::{ensure_db_outside_root, ingest};
-use ledger::store::Store;
+use lightning::adapter::claude_code::ClaudeCode;
+use lightning::ingest::{ensure_db_outside_root, ingest};
+use lightning::store::Store;
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude_root")

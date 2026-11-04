@@ -134,7 +134,7 @@ fn pct(n: i64, d: i64) -> String {
 
 impl DoctorReport {
     pub fn render(&self) -> String {
-        let mut o = String::from("Model Ledger doctor\n\n");
+        let mut o = String::from("Lightning doctor\n\n");
         o.push_str(&format!(
             "data: {} files, {} sessions, {} turns, {} tool calls\n",
             self.files, self.sessions, self.turns, self.tool_calls

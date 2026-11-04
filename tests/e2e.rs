@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use clap::Parser;
-use ledger::cli::{Cli, run};
+use lightning::cli::{Cli, run};
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude_root")
 }
 
 fn cli(args: &[&std::ffi::OsStr]) -> String {
-    let mut full: Vec<&std::ffi::OsStr> = vec!["ledger".as_ref()];
+    let mut full: Vec<&std::ffi::OsStr> = vec!["lightning".as_ref()];
     full.extend_from_slice(args);
     let parsed = Cli::try_parse_from(full).unwrap();
     let mut out = Vec::new();
@@ -52,7 +52,7 @@ fn ingest_report_doctor_through_the_cli() {
 fn ingest_refuses_a_database_inside_the_root() {
     let root = fixtures();
     let db = root.join("oops.db");
-    let parsed = Cli::try_parse_from(["ledger".as_ref(), "--db".as_ref(), db.as_os_str(), "ingest".as_ref(), "--root".as_ref(), root.as_os_str()]).unwrap();
+    let parsed = Cli::try_parse_from(["lightning".as_ref(), "--db".as_ref(), db.as_os_str(), "ingest".as_ref(), "--root".as_ref(), root.as_os_str()]).unwrap();
     assert!(run(parsed, &mut Vec::new()).is_err());
     assert!(!db.exists());
 }

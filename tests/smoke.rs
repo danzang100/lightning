@@ -1,10 +1,10 @@
 use clap::Parser;
-use ledger::cli::{Cli, run};
+use lightning::cli::{Cli, run};
 
 #[test]
 fn doctor_and_report_parse() {
     for sub in ["report", "doctor"] {
-        Cli::try_parse_from(["ledger", sub]).unwrap();
+        Cli::try_parse_from(["lightning", sub]).unwrap();
     }
 }
 
@@ -13,7 +13,7 @@ fn ingest_requires_existing_root() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("l.db");
     let cli = Cli::try_parse_from([
-        "ledger".as_ref(),
+        "lightning".as_ref(),
         "--db".as_ref(),
         db.as_os_str(),
         "ingest".as_ref(),

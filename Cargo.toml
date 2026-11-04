@@ -1,14 +1,14 @@
 [package]
-name = "ledger"
+name = "lightning"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "ledger"
+name = "lightning"
 path = "src/lib.rs"
 
 [[bin]]
-name = "ledger"
+name = "lightning"
 path = "src/main.rs"
 
 [dependencies]

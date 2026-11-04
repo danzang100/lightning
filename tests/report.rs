@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use chrono::{TimeZone, Utc};
-use ledger::adapter::claude_code::ClaudeCode;
-use ledger::ingest::ingest;
-use ledger::pricing::PriceTable;
-use ledger::report::{Format, GroupBy, Report, ReportOptions, Row, build, parse_since};
-use ledger::store::Store;
+use lightning::adapter::claude_code::ClaudeCode;
+use lightning::ingest::ingest;
+use lightning::pricing::PriceTable;
+use lightning::report::{Format, GroupBy, Report, ReportOptions, Row, build, parse_since};
+use lightning::store::Store;
 
 // $1/token input, $2 output, $0.1 cache read, $1.5 cache write 5m, $3 cache write 1h.
 const PRICES: &str = r#"
@@ -153,7 +153,7 @@ fn table_golden() {
     let (store, prices) = setup();
     let t = build(&store, &prices, &opts(GroupBy::Model)).unwrap().render(Format::Table).unwrap();
     let expected = "\
-Model Ledger report: by model | pricing 2026-10-01 (USD) | costs are estimates
+Lightning report: by model | pricing 2026-10-01 (USD) | costs are estimates
 
 group                       turns  in  out  cache_r  cache_w  est_cost  tool_calls     tool_err  denied       reread  cache_hit
 claude-opus-5                   5  22   77    1,350      240   $896.00           3  33.3% (n=3)       1   0.0% (n=1)      83.7%
