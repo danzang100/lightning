@@ -1,5 +1,6 @@
 //! Lightning: normalize coding-agent transcripts and report per-model cost and reliability.
 pub mod adapter;
+pub mod classify;
 pub mod cli;
 pub mod doctor;
 pub mod ingest;

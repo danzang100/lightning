@@ -110,13 +110,19 @@ fn resumed_session_copies_count_once_and_stay_with_the_original() {
 }
 
 #[test]
-fn version_1_database_is_rebuilt() {
+fn version_1_database_is_upgraded_and_rebuilt() {
     let tmp = tempfile::tempdir().unwrap();
     let db = tmp.path().join("l.db");
     {
-        let mut store = Store::open(&db).unwrap();
-        ingest(&mut store, &ClaudeCode, &fixtures()).unwrap();
-        store.conn().execute_batch("PRAGMA user_version = 1").unwrap();
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(lightning::store::MIGRATION_1).unwrap();
+        conn.execute_batch(
+            "INSERT INTO meta VALUES ('salt', 'old-salt'), ('schema_version', '1');
+             INSERT INTO files(path, size, mtime_ns, head_hash, ingested_at) VALUES ('x', 1, 1, 'h', 't');
+             INSERT INTO sessions VALUES (1, 's', '', 'claude_code', NULL, 'p', 'p', NULL, NULL, NULL, NULL, 1);
+             PRAGMA user_version = 1;",
+        )
+        .unwrap();
     }
     let mut store = Store::open(&db).unwrap();
     for t in ["turns", "tool_calls", "signals", "files", "sessions"] {
@@ -124,6 +130,30 @@ fn version_1_database_is_rebuilt() {
     }
     let s = ingest(&mut store, &ClaudeCode, &fixtures()).unwrap();
     assert_eq!((s.files_parsed, s.turns, s.tool_calls), (3, 10, 8));
+    let v: i64 = store.conn().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(v, 3);
+}
+
+#[test]
+fn version_2_rows_survive_as_archive_and_live_files_reparse() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("l.db");
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(lightning::store::MIGRATION_1).unwrap();
+        conn.execute_batch(
+            "INSERT INTO meta VALUES ('salt', 'old-salt'), ('schema_version', '1');
+             INSERT INTO files(path, size, mtime_ns, head_hash, ingested_at) VALUES ('/gone.jsonl', 1, 1, 'h', 't');
+             INSERT INTO turns VALUES ('t1', 1, 's', '', 0, NULL, 'p', 'p', NULL, 'm', NULL, 1, 2, NULL, NULL, NULL, NULL, 0, 0, 1);
+             PRAGMA user_version = 2;",
+        )
+        .unwrap();
+    }
+    let mut store = Store::open(&db).unwrap();
+    let src: String = store.conn().query_row("SELECT source FROM turns WHERE turn_id = 't1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(src, "claude_code", "archived rows keep their data");
+    ingest(&mut store, &ClaudeCode, &fixtures()).unwrap();
+    assert_eq!(store.count("turns").unwrap(), 11);
 }
 
 #[test]

@@ -11,6 +11,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde_json::Value;
 
 use super::{Adapter, DiscoveredFile};
+use crate::classify;
 use crate::redact::{Hasher, last_component};
 use crate::schema::*;
 
@@ -143,7 +144,47 @@ fn read_usage(u: &Value) -> UsageSnap {
     }
 }
 
-const TARGET_TOOLS: [&str; 4] = ["Read", "Write", "Edit", "NotebookEdit"];
+/// Human prompt text of a user line, if it is one: a plain string, or text blocks next to no
+/// tool results. Slash-command wrappers and injected reminders are not prompts.
+fn prompt_text(content: Option<&Value>) -> Option<String> {
+    let text = match content? {
+        Value::String(s) => s.clone(),
+        Value::Array(blocks) => {
+            if blocks.iter().any(|b| b.get("type").and_then(Value::as_str) == Some("tool_result")) {
+                // An interrupt during tool use arrives next to the tool result.
+                return blocks
+                    .iter()
+                    .filter_map(|b| b.get("text").and_then(Value::as_str))
+                    .find(|t| t.starts_with("[Request interrupted"))
+                    .map(String::from);
+            }
+            let parts: Vec<&str> = blocks
+                .iter()
+                .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
+                .filter_map(|b| b.get("text").and_then(Value::as_str))
+                .collect();
+            if parts.is_empty() {
+                return None;
+            }
+            parts.join("\n")
+        }
+        _ => return None,
+    };
+    let t = text.trim_start();
+    if t.is_empty() || t.starts_with("<command-") || t.starts_with("<local-command") || t.starts_with("<system-reminder>") || t.starts_with("Caveat:") {
+        return None;
+    }
+    Some(text)
+}
+
+fn agent_type_of(file: &DiscoveredFile) -> Option<String> {
+    if !file.is_subagent {
+        return None;
+    }
+    let meta = file.path.with_file_name(format!("{}.meta.json", file.path.file_stem()?.to_string_lossy()));
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(meta).ok()?).ok()?;
+    str_of(&v, "agentType").map(String::from)
+}
 
 fn permission_of(line: &Value) -> (Permission, Option<String>) {
     if let Some(kind) = str_of(line, "toolDenialKind") {
@@ -170,6 +211,9 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
     let mut pending: HashMap<String, Pending> = HashMap::new();
     let (mut first_ts, mut last_ts): (Option<String>, Option<String>) = (None, None);
     let (mut version, mut cwd, mut branch): (Option<String>, Option<String>, Option<String>) = (None, None, None);
+    let agent_type = agent_type_of(file);
+    let mut prompts_seen = 0usize;
+    let mut line_no = 0u64;
 
     let mut buf = Vec::new();
     loop {
@@ -178,6 +222,7 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
         if n == 0 {
             break;
         }
+        line_no += 1;
         let complete = buf.ends_with(b"\n");
         let text = String::from_utf8_lossy(&buf);
         let text = text.trim();
@@ -253,14 +298,36 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
                     }
                 }
             }
-            let kind = if is_meta {
-                SignalKind::Meta
+            let prompt = if is_meta { None } else { prompt_text(content) };
+            let kind = if prompt.is_some() {
+                SignalKind::Prompt
             } else if saw_result {
                 SignalKind::ToolResult
+            } else if is_meta {
+                SignalKind::Meta
             } else {
-                SignalKind::Prompt
+                // Command wrappers and injected text: not a human prompt.
+                SignalKind::Meta
             };
-            out.signals.push(UserSignal { session_id, agent_id, ts, kind });
+            let mut sig = UserSignal {
+                session_id,
+                agent_id,
+                ts,
+                kind,
+                class: None,
+                task_hint: None,
+                text_hash: None,
+                src_ref: None,
+            };
+            if let Some(p) = prompt {
+                let class = classify::prompt_class(&p, prompts_seen == 0);
+                prompts_seen += 1;
+                sig.class = Some(class.as_str().to_string());
+                sig.task_hint = classify::task_hint(&p).map(String::from);
+                sig.text_hash = Some(hasher.hash(p.trim()));
+                sig.src_ref = Some(format!("line:{line_no}"));
+            }
+            out.signals.push(sig);
             continue;
         }
 
@@ -296,6 +363,10 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
                     stop_reason: None,
                     is_api_error: false,
                     is_aborted: false,
+                    source: SOURCE_CLAUDE_CODE.to_string(),
+                    effort: str_of(&line, "effort").map(String::from),
+                    reasoning_tokens: None,
+                    agent_type: agent_type.clone(),
                 },
                 best_output: -1,
                 has_usage: false,
@@ -342,11 +413,13 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
                 }
                 let name = str_of(b, "name").unwrap_or("unknown").to_string();
                 let input = b.get("input").cloned().unwrap_or(Value::Null);
-                let target = TARGET_TOOLS
-                    .contains(&name.as_str())
-                    .then(|| str_of(&input, "file_path").or_else(|| str_of(&input, "notebook_path")))
-                    .flatten()
-                    .map(|p| hasher.hash_path(p, cwd_ref));
+                let kind = classify::tool_kind(&name);
+                let path = matches!(kind, "read" | "edit")
+                    .then(|| str_of(&input, "file_path").or_else(|| str_of(&input, "notebook_path")).or_else(|| str_of(&input, "path")))
+                    .flatten();
+                let target = path.map(|p| hasher.hash_path(p, cwd_ref));
+                let target_kind = path.map(|p| classify::target_kind(&crate::redact::normalize_path(p, cwd_ref)).to_string());
+                let cmd_class = (kind == "shell").then(|| str_of(&input, "command").map(classify::cmd_class).unwrap_or("other").to_string());
                 call_index.insert(id.to_string(), calls.len());
                 calls.push(ToolCall {
                     tool_use_id: id.to_string(),
@@ -361,6 +434,9 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
                     result_status: ResultStatus::Unknown,
                     permission: Permission::None,
                     denial_kind: None,
+                    tool_kind: kind.to_string(),
+                    target_kind,
+                    cmd_class,
                 });
             }
         }
@@ -380,7 +456,7 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
     }
 
     if out.stats.lines > 0 {
-        out.session = Some(Session {
+        out.sessions.push(Session {
             session_id: file.session_id.clone(),
             agent_id: file.agent_id.clone().unwrap_or_default(),
             source: SOURCE_CLAUDE_CODE.to_string(),
@@ -391,6 +467,7 @@ pub fn parse_reader<R: BufRead>(mut reader: R, file: &DiscoveredFile, hasher: &H
             git_branch: branch,
             started_at: first_ts,
             ended_at: last_ts,
+            agent_type,
         });
     }
     out.turns = accs.into_iter().map(|a| a.turn).collect();
@@ -501,7 +578,7 @@ mod tests {
         assert!(n3.is_api_error);
         assert_eq!(p.signals.iter().filter(|s| s.kind == SignalKind::Meta).count(), 1);
         assert_eq!(p.signals.iter().filter(|s| s.kind == SignalKind::Prompt).count(), 1);
-        assert_eq!(p.session.as_ref().unwrap().project_name, "beta");
+        assert_eq!(p.sessions[0].project_name, "beta");
     }
 
     #[test]

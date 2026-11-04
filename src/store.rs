@@ -1,4 +1,4 @@
-//! SQLite working store. Rows hold hashes and metadata only (spec 003 section 6.1).
+//! SQLite working store. Rows hold hashes, counts and classes only (lightning-spec section 8.2).
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
@@ -7,9 +7,11 @@ use rusqlite::{Connection, OptionalExtension, params};
 use crate::redact::Hasher;
 use crate::schema::{ParsedFile, SCHEMA_VERSION};
 
-const DB_VERSION: i64 = 2;
+const DB_VERSION: i64 = 3;
 
-const MIGRATION_1: &str = "
+/// Version 1 schema. Public only so tests can build a genuine old database.
+#[doc(hidden)]
+pub const MIGRATION_1: &str = "
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE files (
     id INTEGER PRIMARY KEY,
@@ -109,6 +111,75 @@ DELETE FROM sessions;
 DELETE FROM files;
 ";
 
+/// Additive columns for M1-M4 (spec 004 section 2). `sessions` is rebuilt so one file can hold
+/// many sessions. Fingerprints are blanked so every transcript that still exists is re-parsed;
+/// rows whose transcript is gone keep NULLs in the new columns (the archive).
+const MIGRATION_3: &str = "
+ALTER TABLE turns ADD COLUMN source TEXT;
+ALTER TABLE turns ADD COLUMN effort TEXT;
+ALTER TABLE turns ADD COLUMN reasoning_tokens INTEGER;
+ALTER TABLE turns ADD COLUMN agent_type TEXT;
+UPDATE turns SET source = 'claude_code' WHERE source IS NULL;
+ALTER TABLE tool_calls ADD COLUMN tool_kind TEXT;
+ALTER TABLE tool_calls ADD COLUMN target_kind TEXT;
+ALTER TABLE tool_calls ADD COLUMN cmd_class TEXT;
+ALTER TABLE signals ADD COLUMN class TEXT;
+ALTER TABLE signals ADD COLUMN task_hint TEXT;
+ALTER TABLE signals ADD COLUMN text_hash TEXT;
+ALTER TABLE signals ADD COLUMN src_ref TEXT;
+CREATE TABLE sessions_v3 (
+    file_id INTEGER NOT NULL REFERENCES files(id),
+    session_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    source_version TEXT,
+    project TEXT NOT NULL,
+    project_name TEXT NOT NULL,
+    cwd_hash TEXT,
+    git_branch TEXT,
+    started_at TEXT,
+    ended_at TEXT,
+    schema_version INTEGER NOT NULL,
+    agent_type TEXT,
+    PRIMARY KEY (file_id, session_id, agent_id)
+);
+INSERT INTO sessions_v3 SELECT file_id, session_id, agent_id, source, source_version, project, project_name,
+    cwd_hash, git_branch, started_at, ended_at, schema_version, NULL FROM sessions;
+DROP TABLE sessions;
+ALTER TABLE sessions_v3 RENAME TO sessions;
+CREATE INDEX turns_session ON turns(session_id);
+CREATE INDEX signals_session ON signals(session_id);
+CREATE TABLE labels (
+    segment_id TEXT PRIMARY KEY,
+    task_type TEXT,
+    outcome TEXT,
+    labeled_at TEXT NOT NULL
+);
+CREATE TABLE suggestions (
+    id TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE TABLE adoptions (
+    id INTEGER PRIMARY KEY,
+    suggestion_id TEXT NOT NULL,
+    applied_at TEXT NOT NULL,
+    target_path TEXT NOT NULL,
+    before_exists INTEGER NOT NULL,
+    before_hash TEXT,
+    after_hash TEXT NOT NULL,
+    before_content TEXT,
+    after_content TEXT NOT NULL,
+    rolled_back_at TEXT
+);
+UPDATE files SET head_hash = '';
+";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fingerprint {
     pub path: String,
@@ -157,6 +228,13 @@ impl Store {
             let tx = conn.unchecked_transaction()?;
             tx.execute_batch(MIGRATION_2)?;
             tx.execute_batch("PRAGMA user_version = 2")?;
+            tx.commit()?;
+        }
+        if v < 3 {
+            let tx = conn.unchecked_transaction()?;
+            tx.execute_batch(MIGRATION_3)?;
+            tx.execute("UPDATE meta SET value = ?1 WHERE key = 'schema_version'", params![SCHEMA_VERSION.to_string()])?;
+            tx.execute_batch("PRAGMA user_version = 3")?;
             tx.commit()?;
         }
         let salt: String = conn.query_row("SELECT value FROM meta WHERE key = 'salt'", [], |r| r.get(0))?;
@@ -208,9 +286,9 @@ impl Store {
             tx.execute(&format!("DELETE FROM {table} WHERE file_id = ?1"), params![file_id])?;
         }
         let sv = SCHEMA_VERSION;
-        if let Some(s) = &parsed.session {
+        for s in &parsed.sessions {
             tx.execute(
-                "INSERT INTO sessions VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                "INSERT OR IGNORE INTO sessions VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
                 params![
                     file_id,
                     s.session_id,
@@ -223,13 +301,14 @@ impl Store {
                     s.git_branch,
                     s.started_at,
                     s.ended_at,
-                    sv
+                    sv,
+                    s.agent_type
                 ],
             )?;
         }
         {
             let mut st = tx.prepare(
-                "INSERT OR IGNORE INTO turns VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
+                "INSERT OR IGNORE INTO turns VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24)",
             )?;
             for t in &parsed.turns {
                 st.execute(params![
@@ -252,10 +331,14 @@ impl Store {
                     t.stop_reason,
                     t.is_api_error,
                     t.is_aborted,
-                    sv
+                    sv,
+                    t.source,
+                    t.effort,
+                    t.reasoning_tokens,
+                    t.agent_type
                 ])?;
             }
-            let mut st = tx.prepare("INSERT OR IGNORE INTO tool_calls VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)")?;
+            let mut st = tx.prepare("INSERT OR IGNORE INTO tool_calls VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)")?;
             for c in &parsed.tool_calls {
                 st.execute(params![
                     c.tool_use_id,
@@ -271,12 +354,17 @@ impl Store {
                     c.result_status.as_str(),
                     c.permission.as_str(),
                     c.denial_kind,
-                    sv
+                    sv,
+                    c.tool_kind,
+                    c.target_kind,
+                    c.cmd_class
                 ])?;
             }
-            let mut st = tx.prepare("INSERT INTO signals(file_id, session_id, agent_id, ts, kind, schema_version) VALUES (?1,?2,?3,?4,?5,?6)")?;
+            let mut st = tx.prepare("INSERT INTO signals(file_id, session_id, agent_id, ts, kind, schema_version, class, task_hint, text_hash, src_ref)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            )?;
             for s in &parsed.signals {
-                st.execute(params![file_id, s.session_id, s.agent_id, s.ts, s.kind.as_str(), sv])?;
+                st.execute(params![file_id, s.session_id, s.agent_id, s.ts, s.kind.as_str(), sv, s.class, s.task_hint, s.text_hash, s.src_ref])?;
             }
             let mut st = tx.prepare("INSERT INTO unknown_types VALUES (?1,?2,?3)")?;
             for (ty, n) in &parsed.stats.unknown_types {
@@ -285,6 +373,11 @@ impl Store {
         }
         tx.commit()?;
         Ok(())
+    }
+
+    /// Source path recorded for a file id (used to show a prompt again at label time).
+    pub fn file_path(&self, file_id: i64) -> Result<Option<String>> {
+        Ok(self.conn.query_row("SELECT path FROM files WHERE id = ?1", params![file_id], |r| r.get(0)).optional()?)
     }
 
     pub fn count(&self, table: &str) -> Result<i64> {

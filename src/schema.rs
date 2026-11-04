@@ -1,8 +1,10 @@
-//! Normalized records (parent spec section 7, M0 subset). Additive changes only.
+//! Normalized records (lightning-spec section 8). Additive changes only; see docs/schema.md.
 use serde::{Deserialize, Serialize};
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 pub const SOURCE_CLAUDE_CODE: &str = "claude_code";
+pub const SOURCE_CODEX: &str = "codex";
+pub const SOURCE_OPENCODE: &str = "opencode";
 pub const SYNTHETIC_MODEL: &str = "<synthetic>";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -17,6 +19,8 @@ pub struct Session {
     pub git_branch: Option<String>,
     pub started_at: Option<String>,
     pub ended_at: Option<String>,
+    /// Subagent type (Claude Code `agentType`), when known.
+    pub agent_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -39,6 +43,12 @@ pub struct Turn {
     pub stop_reason: Option<String>,
     pub is_api_error: bool,
     pub is_aborted: bool,
+    /// Harness that produced the turn (`claude_code`, `codex`, `opencode`).
+    pub source: String,
+    /// Reasoning effort setting active for the turn, when the log records one.
+    pub effort: Option<String>,
+    pub reasoning_tokens: Option<i64>,
+    pub agent_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,6 +102,12 @@ pub struct ToolCall {
     pub result_status: ResultStatus,
     pub permission: Permission,
     pub denial_kind: Option<String>,
+    /// Canonical kind across harnesses (see `classify::tool_kind`).
+    pub tool_kind: String,
+    /// Kind of file targeted (test, doc, config, code, other); never the path.
+    pub target_kind: Option<String>,
+    /// Class of a shell command (test, build, git_commit, ...); never the command.
+    pub cmd_class: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,6 +134,14 @@ pub struct UserSignal {
     pub agent_id: String,
     pub ts: Option<String>,
     pub kind: SignalKind,
+    /// Prompt class (new_task, correction, ...); prompts only.
+    pub class: Option<String>,
+    /// Task type suggested by the prompt's keywords; prompts only.
+    pub task_hint: Option<String>,
+    pub text_hash: Option<String>,
+    /// Where the prompt lives in the source (line number or record id), so a human labeler can
+    /// look at it again. The text itself is never stored.
+    pub src_ref: Option<String>,
 }
 
 /// Counters for one parsed file.
@@ -133,7 +157,8 @@ pub struct ParseStats {
 /// Everything extracted from one transcript file.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ParsedFile {
-    pub session: Option<Session>,
+    /// One per transcript for JSONL harnesses; a database source can hold many.
+    pub sessions: Vec<Session>,
     pub turns: Vec<Turn>,
     pub tool_calls: Vec<ToolCall>,
     pub signals: Vec<UserSignal>,

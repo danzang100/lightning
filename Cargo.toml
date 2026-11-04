@@ -1,7 +1,14 @@
 [package]
-name = "lightning"
-version = "0.1.0"
+name = "lightning-ledger"
+version = "0.2.0"
 edition = "2024"
+description = "Which coding-agent harness + model pair works best for which task, from your own local session logs"
+license = "MIT"
+repository = "https://github.com/danzang100/lightning"
+readme = "README.md"
+keywords = ["claude-code", "codex", "llm", "agents", "cost"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = ["tests/fixtures/**", "docs/specs/**", "npm/**", ".github/**"]
 
 [lib]
 name = "lightning"
