@@ -19,8 +19,11 @@ pub const EXPIRY_DAYS: i64 = 30;
 /// A failure rate this many points above other pairs (lower bound) makes a rule suggestion.
 pub const RULE_MARGIN: f64 = 0.10;
 pub const RULE_RATIO: f64 = 1.5;
-/// Median first-turn context above this many tokens earns a hygiene hint.
+/// A repo earns a hygiene hint when its median opening context is above this many tokens and
+/// at least `HYGIENE_RATIO` times the median of the user's other sessions in the same harness
+/// (the harness's own system prompt and tools set a baseline that is not the repo's fault).
 pub const HYGIENE_TOKENS: f64 = 60_000.0;
+pub const HYGIENE_RATIO: f64 = 1.5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -384,24 +387,33 @@ pub fn generate(segs: &[Segment], runs: &[SubagentRun], kinds: &[Kind], min_n: u
     }
 
     if kinds.contains(&Kind::Hygiene) {
-        let mut by_repo: BTreeMap<String, Vec<&Segment>> = BTreeMap::new();
+        let mut by_repo: BTreeMap<(String, String), Vec<&Segment>> = BTreeMap::new();
+        let mut by_harness: BTreeMap<String, Vec<f64>> = BTreeMap::new();
         for s in segs {
-            by_repo.entry(s.repo_key.clone()).or_default().push(s);
+            by_repo.entry((s.source.clone(), s.repo_key.clone())).or_default().push(s);
+            if let Some(c) = s.first_turn_context {
+                by_harness.entry(s.source.clone()).or_default().push(c as f64);
+            }
         }
-        for (key, v) in by_repo {
+        for ((harness, key), v) in by_repo {
             let ctx: Vec<f64> = v.iter().filter_map(|s| s.first_turn_context.map(|x| x as f64)).collect();
             if (ctx.len() as u64) < (min_n / 2).max(5) {
                 continue;
             }
             let med = stats::median(&ctx).unwrap_or(0.0);
-            if med > HYGIENE_TOKENS {
+            let baseline = stats::median(&by_harness[&harness]).unwrap_or(0.0);
+            if med > HYGIENE_TOKENS && med > HYGIENE_RATIO * baseline {
                 let repo = v[0].repo.clone();
                 out.push(mk(
                     Kind::Hygiene,
                     "medium",
-                    format!("In {repo}, the first turn of a task carries a median of {:.0}k tokens of context before any work starts.", med / 1000.0),
-                    serde_json::json!({"median_first_turn_context": med, "n": ctx.len(), "segments": sample_ids(&v)}),
-                    format!("if the median drops below {:.0}k tokens", HYGIENE_TOKENS / 1000.0),
+                    format!(
+                        "In {repo}, sessions start with a median of {:.0}k tokens of context before any work, against {:.0}k across your {harness} sessions.",
+                        med / 1000.0,
+                        baseline / 1000.0
+                    ),
+                    serde_json::json!({"median_first_turn_context": med, "harness_median": baseline, "n": ctx.len(), "segments": sample_ids(&v)}),
+                    format!("if the median drops below {:.0}k tokens or the gap to your other repos closes", (HYGIENE_RATIO * baseline).max(HYGIENE_TOKENS) / 1000.0),
                     "smaller first turns: trim always-loaded instruction files, imported docs and unused MCP tools".into(),
                     Scope { repo: Some(repo), repo_key: Some(key), ..Scope::default() },
                     None,

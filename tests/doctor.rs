@@ -29,9 +29,9 @@ range: 2026-10-01T10:00:00.000Z .. 2026-10-02T09:00:04.000Z
 other line types (ignored): system=1, weird-new-type=1
 
 field presence by harness version (non-synthetic turns)
-harness      version        turns  usage  cache_read  cache_write  stop_reason
-claude_code  2.9.0              3   100%         33%          33%          67%
-claude_code  3.0.1              6   100%        100%         100%         100%
+harness      version            turns  usage  cache_read  cache_write  stop_reason
+claude_code  2.9.0                  3   100%         33%          33%          67%
+claude_code  3.0.1                  6   100%        100%         100%         100%
 
 pricing: version 2026-10-12, unpriced: claude-haiku-9, claude-opus-5, claude-sonnet-5, claude-sonnet-5-5
 

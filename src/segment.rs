@@ -54,6 +54,8 @@ pub struct Segment {
     pub retries: u64,
     pub edits: u64,
     pub corrections: u64,
+    /// Tokens in the session's first API call (system prompt, instructions, tools); only set on
+    /// the segment that opens a session.
     pub first_turn_context: Option<i64>,
     pub wall_secs: Option<f64>,
     /// Where the opening prompt lives, for labeling (file id and reference).
@@ -318,7 +320,7 @@ pub fn build(store: &Store, pricing: &PriceTable, opts: &SegmentOptions) -> Resu
                 })
                 .collect();
             let next_prompt = merged.get(idx + 1).and_then(|n| n.prompts.first()).map(|p| p.class.clone());
-            let seg = finish(&session_id, acc, &attached, &calls_by_turn, next_prompt, &repo_keys, pricing, store);
+            let seg = finish(&session_id, acc, idx == 0, &attached, &calls_by_turn, next_prompt, &repo_keys, pricing, store);
             if let (Some(c), Some(s)) = (&cutoff, &seg.start)
                 && s < c
             {
@@ -335,6 +337,7 @@ pub fn build(store: &Store, pricing: &PriceTable, opts: &SegmentOptions) -> Resu
 fn finish(
     session_id: &str,
     acc: &Acc,
+    opens_session: bool,
     subs: &[&TurnRow],
     calls_by_turn: &HashMap<String, Vec<CallRow>>,
     next_prompt: Option<String>,
@@ -493,20 +496,23 @@ fn finish(
     }
     let ended_aborted = acc.turns.last().is_some_and(|t| t.aborted) || closing.as_deref() == Some("abort");
     let strong_negative = last_verify == Some(false) || reverts > 0 || ended_aborted || closing.as_deref() == Some("correction");
+    let moved_on = matches!(next_prompt.as_deref(), Some("new_task" | "approval"));
     let outcome = if strong_negative || corrections >= 2 {
         "likely_failure"
-    } else if corrections == 0 && (last_verify == Some(true) || commits > 0) {
-        "likely_success"
-    } else if corrections == 0 && edits > 0 && matches!(next_prompt.as_deref(), Some("new_task" | "approval")) {
-        "likely_success"
-    } else if corrections == 0 && edits == 0 && shells == 0 && matches!(next_prompt.as_deref(), Some("new_task" | "approval")) {
-        // Exploration that the user moved on from without pushing back.
+    } else if corrections == 0
+        && (last_verify == Some(true)
+            || commits > 0
+            // The user moved on without pushing back, after edits or after pure exploration.
+            || (moved_on && (edits > 0 || shells == 0)))
+    {
         "likely_success"
     } else {
         "unknown"
     };
 
-    let first_ctx = first.tokens.input.map(|i| i + first.tokens.cache_read.unwrap_or(0) + first.tokens.cache_write_5m.unwrap_or(0) + first.tokens.cache_write_1h.unwrap_or(0));
+    // Context loaded before any work: only meaningful for the segment that opens a session; later
+    // segments start with the whole conversation so far.
+    let first_ctx = first.tokens.input.filter(|_| opens_session).map(|i| i + first.tokens.cache_read.unwrap_or(0) + first.tokens.cache_write_5m.unwrap_or(0) + first.tokens.cache_write_1h.unwrap_or(0));
     let wall = match (acc.start.as_deref().and_then(parse_ts), last_turn_ts.as_deref().and_then(parse_ts)) {
         (Some(a), Some(b)) => Some((b - a).num_milliseconds() as f64 / 1000.0),
         _ => None,

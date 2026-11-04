@@ -169,7 +169,9 @@ pub fn build(store: &Store, pricing: &PriceTable, since: Option<DateTime<Utc>>) 
     }
 
     // Cross-session: sessions ordered by start, per repo.
-    let mut starts: Vec<(&String, Option<&String>, Option<&String>, &String, String)> = Vec::new();
+    // (repo, first ts, last ts, session, dominant pair)
+    type Span<'a> = (&'a String, Option<&'a String>, Option<&'a String>, &'a String, String);
+    let mut starts: Vec<Span> = Vec::new();
     for (sid, turns) in &by_session {
         let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
         for t in turns {

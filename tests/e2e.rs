@@ -35,6 +35,8 @@ fn ingest_report_doctor_through_the_cli() {
         "--db".as_ref(),
         db,
         "report".as_ref(),
+        "--by".as_ref(),
+        "model".as_ref(),
         "--format".as_ref(),
         "json".as_ref(),
         "--pricing".as_ref(),
@@ -95,7 +97,7 @@ fn synthetic_scale_is_correct_and_fast() {
     assert_eq!(v["sessions"], 200);
     assert!(elapsed.as_secs() < 60, "ingest took {elapsed:?}");
 
-    let rep = cli(&["--db".as_ref(), db.as_os_str(), "report".as_ref(), "--format".as_ref(), "json".as_ref(), "--pricing".as_ref(), tmp.path().join("none.toml").as_os_str()]);
+    let rep = cli(&["--db".as_ref(), db.as_os_str(), "report".as_ref(), "--by".as_ref(), "model".as_ref(), "--format".as_ref(), "json".as_ref(), "--pricing".as_ref(), tmp.path().join("none.toml").as_os_str()]);
     let v: serde_json::Value = serde_json::from_str(&rep).unwrap();
     let out_tokens: i64 = v["rows"].as_array().unwrap().iter().map(|r| r["output_tokens"].as_i64().unwrap()).sum();
     assert_eq!(out_tokens, 200 * 50 * 30, "final (largest) usage per message, not the sum of its lines");

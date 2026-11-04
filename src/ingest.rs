@@ -13,6 +13,8 @@ use crate::store::{Fingerprint, Store};
 
 #[derive(Debug, Default, Serialize)]
 pub struct IngestSummary {
+    /// Harnesses whose logs were found and read this run.
+    pub sources: Vec<String>,
     pub files_seen: u64,
     pub files_skipped: u64,
     pub files_parsed: u64,
@@ -115,8 +117,29 @@ pub fn ingest(store: &mut Store, adapter: &dyn Adapter, root: &Path) -> Result<I
 }
 
 impl IngestSummary {
+    /// Add another source's run; database totals come from the later (complete) run.
+    pub fn merge(&mut self, o: IngestSummary) {
+        self.files_seen += o.files_seen;
+        self.files_skipped += o.files_skipped;
+        self.files_parsed += o.files_parsed;
+        self.files_failed += o.files_failed;
+        self.bad_lines += o.bad_lines;
+        self.partial_tails += o.partial_tails;
+        for (k, v) in o.unknown_types {
+            *self.unknown_types.entry(k).or_default() += v;
+        }
+        self.sessions = o.sessions;
+        self.turns = o.turns;
+        self.tool_calls = o.tool_calls;
+        self.elapsed_ms += o.elapsed_ms;
+    }
+
     pub fn render(&self) -> String {
         let mut o = String::new();
+        if !self.sources.is_empty() {
+            o.push_str(&format!("sources: {}
+", self.sources.join(", ")));
+        }
         o.push_str(&format!(
             "files: {} seen, {} parsed, {} unchanged, {} failed\n",
             self.files_seen, self.files_parsed, self.files_skipped, self.files_failed

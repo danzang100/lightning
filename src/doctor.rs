@@ -221,10 +221,10 @@ impl DoctorReport {
             o.push_str(&format!("other line types (ignored): {}\n", v.join(", ")));
         }
         o.push_str("\nfield presence by harness version (non-synthetic turns)\n");
-        o.push_str("harness      version        turns  usage  cache_read  cache_write  stop_reason\n");
+        o.push_str("harness      version            turns  usage  cache_read  cache_write  stop_reason\n");
         for v in &self.versions {
             o.push_str(&format!(
-                "{:<12} {:<12} {:>7} {:>6} {:>11} {:>12} {:>12}\n",
+                "{:<12} {:<16} {:>7} {:>6} {:>11} {:>12} {:>12}\n",
                 v.source,
                 v.version,
                 v.turns,
