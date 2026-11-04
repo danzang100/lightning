@@ -159,6 +159,11 @@ fn pct(x: f64) -> String {
 
 /// Compare pair B against baseline A on the given segments (already filtered to one task).
 pub fn compare_pairs(task: &str, pair_a: &str, a: &[&Segment], pair_b: &str, b: &[&Segment], min_n: u64) -> Finding {
+    compare_pairs_by(task, pair_a, a, pair_b, b, min_n, Segment::stratum)
+}
+
+/// As `compare_pairs`, with a caller-chosen stratum (e.g. task x size when comparing across tasks).
+pub fn compare_pairs_by(task: &str, pair_a: &str, a: &[&Segment], pair_b: &str, b: &[&Segment], min_n: u64, stratum: fn(&Segment) -> String) -> Finding {
     let decided = |v: &[&Segment]| v.iter().filter(|s| s.success().is_some()).count() as u64;
     let (n_a, n_b) = (decided(a), decided(b));
     let rate = |v: &[&Segment]| {
@@ -168,7 +173,7 @@ pub fn compare_pairs(task: &str, pair_a: &str, a: &[&Segment], pair_b: &str, b: 
     let both: Vec<&Segment> = a.iter().chain(b.iter()).copied().collect();
     let basis = cost_basis(&both);
     let obs = |v: &[&Segment]| -> Vec<Obs> {
-        v.iter().map(|s| Obs { stratum: s.stratum(), success: s.success(), cost: cost_of(s, basis) }).collect()
+        v.iter().map(|s| Obs { stratum: stratum(s), success: s.success(), cost: cost_of(s, basis) }).collect()
     };
     let alternation = alternation_days(a, b);
     let mut f = Finding {

@@ -38,8 +38,10 @@ pub struct Plan {
     pub seed: u64,
     /// First day (UTC) of generated activity.
     pub start: (i32, u32, u32),
-    /// Model of the turns, alternated per segment so pairs share repos and days.
+    /// Claude Code version written on every line.
     pub version: String,
+    /// Directory the repos live under (sessions record `<cwd_root>/<repo>` as their cwd).
+    pub cwd_root: String,
 }
 
 impl Default for Plan {
@@ -52,6 +54,7 @@ impl Default for Plan {
             seed: 7,
             start: (2026, 10, 1),
             version: "3.1.0".into(),
+            cwd_root: "/work".into(),
         }
     }
 }
@@ -87,8 +90,8 @@ pub fn generate(root: &Path, plan: &Plan) -> Result<Vec<Truth>> {
         for task in &plan.tasks {
             for pair in &plan.pairs {
                 let repo = &plan.repos[(i + n) % plan.repos.len()];
-                let cwd = format!("/work/{repo}");
-                let slug = format!("-work-{repo}");
+                let cwd = format!("{}/{repo}", plan.cwd_root.trim_end_matches(['/', '\\']));
+                let slug: String = cwd.chars().map(|c| if c.is_alphanumeric() { c } else { '-' }).collect();
                 let sid = format!("{:08x}-0000-4000-8000-{:012x}", plan.seed as u32, n);
                 let mut ts = t0 + Duration::hours((n / 4) as i64) + Duration::minutes((n % 4) as i64 * 10);
                 let success = (rng.next_u64() % 10_000) as f64 / 10_000.0 < pair.success_p;

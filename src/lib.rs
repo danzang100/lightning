@@ -1,7 +1,9 @@
 //! Lightning: which harness + model pair works best for which kind of work, from local session logs.
 pub mod adapter;
+pub mod adopt;
 pub mod analysis;
 pub mod classify;
+pub mod configedit;
 pub mod cli;
 pub mod doctor;
 pub mod ingest;
@@ -13,4 +15,6 @@ pub mod schema;
 pub mod segment;
 pub mod stats;
 pub mod store;
+pub mod suggest;
+pub mod switches;
 pub mod synth;

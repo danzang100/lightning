@@ -393,11 +393,14 @@ fn finish(
         if c.permission == "denied" {
             denials += 1;
         }
-        let n = seen_call.entry((c.agent_id.as_str(), c.tool_name.as_str(), c.args_hash.as_str())).or_default();
-        if *n > 0 {
-            retries += 1;
+        // A retry repeats an identical call; repeated reads are counted as re-reads instead.
+        if c.tool_kind != "read" {
+            let n = seen_call.entry((c.agent_id.as_str(), c.tool_name.as_str(), c.args_hash.as_str())).or_default();
+            if *n > 0 {
+                retries += 1;
+            }
+            *n += 1;
         }
-        *n += 1;
         let key = (c.session_id.as_str(), c.agent_id.as_str());
         match c.tool_kind.as_str() {
             "read" => {
