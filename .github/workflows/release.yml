@@ -1,10 +1,12 @@
 # Builds release archives for a pushed tag (vX.Y.Z), writes SHA-256 checksums, and creates a
 # DRAFT GitHub release. Publishing the release, crates.io and npm stays a manual step.
+# Run it by hand (workflow_dispatch) to build and smoke-test every target without releasing.
 name: release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,24 +16,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Linux uses musl for a static binary that runs on any distro. The Intel macOS binary is
+        # built on Apple Silicon (macos-13 runners are retired); `cross` skips its smoke test.
         include:
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
-          - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
-          - { target: x86_64-apple-darwin, os: macos-13 }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, musl: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, musl: true }
+          - { target: x86_64-apple-darwin, os: macos-latest, cross: true }
           - { target: aarch64-apple-darwin, os: macos-latest }
           - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: aarch64-pc-windows-msvc, os: windows-11-arm }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Check tag matches Cargo.toml version
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           v=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           test "v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != Cargo.toml $v"; exit 1; }
-      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Build
+        shell: bash
+        run: |
+          # rusqlite compiles SQLite from C; point cc at musl-gcc for the static Linux builds.
+          if [ "${{ matrix.musl }}" = "true" ]; then export CC=musl-gcc; fi
+          cargo build --release --locked --target ${{ matrix.target }}
+      - name: Smoke test
+        if: ${{ !matrix.cross }}
+        shell: bash
+        run: target/${{ matrix.target }}/release/lightning --version
       - name: Package
         shell: bash
         run: |
@@ -48,6 +66,7 @@ jobs:
 
   release:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

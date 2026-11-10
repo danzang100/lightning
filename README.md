@@ -8,11 +8,28 @@ It is one small binary. It makes no network calls and sends no telemetry, and it
 
 ## Install
 
+No release is published yet. Until then, build from source (needs [Rust](https://rustup.rs)):
+
 ```bash
-cargo install lightning-ledger --locked
+cargo install --git https://github.com/danzang100/lightning --locked
 ```
 
-Or, once a release is published: `npx lightning-ledger@<version> <command>`. The npm launcher downloads that release's binary and verifies its SHA-256 against the checksums shipped in the package before running it. To build from source, clone this repository and run `cargo install --path .`.
+Once a release is published there are three more ways:
+
+- **Prebuilt binary.** Download the archive for your platform from the [releases page](https://github.com/danzang100/lightning/releases), check it against `SHA256SUMS`, extract it and put `lightning` on your PATH.
+
+  | Platform | Archive |
+  |---|---|
+  | macOS, Apple Silicon | `lightning-aarch64-apple-darwin.tar.gz` |
+  | macOS, Intel | `lightning-x86_64-apple-darwin.tar.gz` |
+  | Linux x64 (static, any distro) | `lightning-x86_64-unknown-linux-musl.tar.gz` |
+  | Linux ARM64 (static, any distro) | `lightning-aarch64-unknown-linux-musl.tar.gz` |
+  | Windows x64 | `lightning-x86_64-pc-windows-msvc.zip` |
+  | Windows ARM64 | `lightning-aarch64-pc-windows-msvc.zip` |
+
+  The macOS binaries aren't signed or notarized. If you downloaded one with a browser, macOS will refuse to open it; clear the quarantine flag after checking the checksum: `xattr -d com.apple.quarantine lightning`. Downloads made with `curl` aren't affected.
+- **npx:** `npx lightning-ledger@<version> <command>`. The launcher downloads that release's binary and verifies its SHA-256 against the checksums shipped in the package before running it.
+- **crates.io:** `cargo install lightning-ledger --locked`.
 
 The package is called `lightning-ledger` because `lightning` is taken on crates.io and npm. The command is `lightning`.
 

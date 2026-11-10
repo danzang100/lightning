@@ -14,9 +14,9 @@ const REPO = "danzang100/lightning";
 
 function target() {
   const arch = { x64: "x86_64", arm64: "aarch64" }[process.arch];
-  const sys = { linux: "unknown-linux-gnu", darwin: "apple-darwin", win32: "pc-windows-msvc" }[process.platform];
-  if (!arch || !sys || (process.platform === "win32" && arch !== "x86_64")) {
-    fail(`no prebuilt binary for ${process.platform}/${process.arch}; build from source: cargo install lightning-ledger`);
+  const sys = { linux: "unknown-linux-musl", darwin: "apple-darwin", win32: "pc-windows-msvc" }[process.platform];
+  if (!arch || !sys) {
+    fail(`no prebuilt binary for ${process.platform}/${process.arch}; build from source: cargo install --git https://github.com/danzang100/lightning --locked`);
   }
   return `${arch}-${sys}`;
 }
